@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>LUAU TO F3X</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=VT323&display=swap');
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            background: linear-gradient(45deg, #0a0a0a, #1a0000, #0a0a0a);
+            background-size: 400% 400%;
+            animation: gradientShift 15s ease infinite;
+            color: #ff3333;
+            font-family: 'VT323', monospace;
+            min-height: 100dvh;
+            overflow-x: hidden;
+        }
+
+        @keyframes gradientShift {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        .scanline {
+            position: fixed; top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: linear-gradient(transparent 50%, rgba(255,0,0,0.05) 50%);
+            background-size: 100% 6px;
+            pointer-events: none;
+            animation: scan 4s linear infinite;
+            z-index: 10; opacity: 0.5;
+        }
+
+        @keyframes scan { 0% { transform: translateY(-100%); } 100% { transform: translateY(300%); } }
+
+        .header {
+            text-align: center; padding: 20px 15px;
+            background: rgba(0,0,0,0.9); border-bottom: 4px solid #ff0000;
+            text-shadow: 0 0 20px #ff0000; animation: glow 1.5s infinite alternate;
+        }
+
+        @keyframes glow { from { text-shadow: 0 0 10px #ff0000; } to { text-shadow: 0 0 40px #ff0000; } }
+
+        .main {
+            display: flex; flex-direction: column; gap: 15px;
+            padding: 15px; height: calc(100dvh - 140px);
+        }
+
+        @media (min-width: 768px) {
+            .main { flex-direction: row; height: calc(100dvh - 160px); }
+        }
+
+        .panel {
+            flex: 1; background: #111111; border: 3px solid #440000;
+            border-radius: 10px; display: flex; flex-direction: column;
+            box-shadow: 0 0 30px rgba(255, 0, 0, 0.4); min-height: 300px;
+        }
+
+        .panel-header {
+            padding: 15px 20px; background: #220000; font-size: 1.8rem;
+            border-bottom: 3px solid #ff0000; flex-shrink: 0;
+        }
+
+        textarea {
+            flex: 1; background: #0a0a0a; color: #ff6666;
+            border: none; padding: 18px; font-family: 'VT323', monospace;
+            font-size: 1.25rem; line-height: 1.4; resize: none; outline: none;
+            overflow-y: auto; -webkit-overflow-scrolling: touch;
+            scrollbar-width: thin; scrollbar-color: #ff0000 #330000;
+        }
+
+        textarea::-webkit-scrollbar { width: 8px; }
+        textarea::-webkit-scrollbar-thumb { background: #ff0000; border-radius: 4px; }
+        textarea::-webkit-scrollbar-track { background: #330000; }
+
+        .controls {
+            padding: 15px; display: flex; gap: 12px;
+            background: #1a0000; flex-shrink: 0;
+        }
+
+        button {
+            flex: 1; background: #330000; color: #ff0000;
+            border: 3px solid #ff0000; padding: 16px;
+            font-size: 1.5rem; cursor: pointer; transition: all 0.2s;
+        }
+
+        button:hover, button:active {
+            background: #ff0000; color: black;
+            transform: scale(1.05); box-shadow: 0 0 25px #ff0000;
+        }
+
+        .convert-btn { background: #660000; font-size: 1.7rem; }
+
+        .footer {
+            text-align: center; padding: 12px; color: #550000;
+            font-size: 1.1rem; border-top: 2px solid #330000;
+        }
+
+        .status {
+            position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%);
+            background: rgba(0,0,0,0.9); color: #00ff00; padding: 10px 20px;
+            border: 2px solid #00ff00; display: none; z-index: 100; font-size: 1.2rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="scanline"></div>
+
+    <div class="header">
+        <h1 style="font-size: 3.8rem; margin: 0; letter-spacing: 6px;">LUAU TO F3X</h1>
+        <p style="font-size: 1.5rem; margin: 8px 0 0 0;">Now handles BOTH building scripts AND regular scripts (like your button example)</p>
+    </div>
+
+    <div class="main">
+        <!-- INPUT -->
+        <div class="panel">
+            <div class="panel-header">INPUT — Luau Code</div>
+            <textarea id="input" spellcheck="false">-- Paste any Luau script here (building or regular)
+
+script.Parent.MouseButton1Click:Connect(function()
+    game.Lighting:ClearAllChildren()
+    local sky = Instance.new("Sky", game.Lighting)
+    local i = "rbxassetid://133136212718738"
+    sky.SkyboxBk = i; sky.SkyboxFt = i; sky.SkyboxLf = i; sky.SkyboxRt = i; sky.SkyboxUp = i; sky.SkyboxDn = i
+end)</textarea>
+        </div>
+
+        <!-- OUTPUT -->
+        <div class="panel">
+            <div class="panel-header">OUTPUT — F3X Ready</div>
+            <textarea id="output" readonly spellcheck="false"></textarea>
+            <div class="controls">
+                <button onclick="convertCode()" class="convert-btn">CONVERT →</button>
+                <button onclick="copyCode()">COPY CODE</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="footer">
+        Handles building parts + regular scripts • Scrollable on all devices • Red & Black Theme
+    </div>
+
+    <div id="status" class="status">Copied to clipboard!</div>
+
+    <script>
+        function convertCode() {
+            let input = document.getElementById('input').value.trim();
+            if (!input) input = "-- No code entered";
+
+            let output = input;
+
+            // Clean common Luau stuff
+            output = output.replace(/:\s*[\w<>\[\]]+/g, ''); // remove type annotations
+
+            // Detect if it's likely a building script (creates parts)
+            const isBuildingScript = /Instance\.new\(["']Part["']/i.test(input) || 
+                                    /Instance\.new\(["']Model["']/i.test(input) ||
+                                    /\.Position\s*=/.test(input) || 
+                                    /\.Size\s*=/.test(input);
+
+            let header = `-- LUAU TO F3X CONVERTED\n`;
+
+            if (isBuildingScript) {
+                header += `-- BUILDING SCRIPT DETECTED\n` +
+                          `-- Run this script, then equip F3X tools (Move / Resize / Rotate / Paint) to edit the created parts\n\n`;
+            } else {
+                header += `-- REGULAR SCRIPT (e.g. button, lighting, skybox)\n` +
+                          `-- F3X is for editing PARTS only. This script does NOT create parts to edit with F3X.\n` +
+                          `-- Just paste and run it normally in a Script / LocalScript.\n` +
+                          `-- If it creates any parts later, use F3X tools on them.\n\n`;
+            }
+
+            output = header + output;
+
+            // For your specific skybox example, add extra note
+            if (input.includes("Sky") || input.includes("Lighting")) {
+                output += `\n\n-- NOTE: Skybox changes affect the whole place. F3X has a Lighting tool but it's limited. Test in Play mode.`;
+            }
+
+            document.getElementById('output').value = output;
+        }
+
+        function copyCode() {
+            const text = document.getElementById('output').value;
+            if (!text || text.includes("No code")) {
+                alert("Convert something first, bruh!");
+                return;
+            }
+            navigator.clipboard.writeText(text).then(() => {
+                const status = document.getElementById('status');
+                status.style.display = 'block';
+                setTimeout(() => status.style.display = 'none', 1800);
+            });
+        }
+
+        // Live convert with small delay
+        let timeout;
+        document.getElementById('input').addEventListener('input', () => {
+            clearTimeout(timeout);
+            timeout = setTimeout(convertCode, 500);
+        });
+
+        document.addEventListener('keydown', (e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') convertCode();
+        });
+
+        // Initial convert
+        window.onload = convertCode;
+    </script>
+</body>
+</html>
